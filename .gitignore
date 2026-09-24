@@ -1,0 +1,58 @@
+# ============================================================
+# .gitignore — DermaScope AI
+# ============================================================
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# === Environnement Virtuel ===
+venv/
+.venv/
+env/
+
+# === Données (Trop volumineuses pour Git) ===
+data/Images_Dermascope_Propres/
+data/*.zip
+*.zip
+
+# === Modèles entraînés (Trop lourds, > 100 Mo) ===
+models/*.pth
+models/*.pt
+models/*.onnx
+*.pth
+*.pt
+
+# === Poids SAM ===
+sam_vit_b_01ec64.pth
+sam_vit_h_4b8939.pth
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Jupyter ===
+.ipynb_checkpoints/
+
+# === Logs ===
+*.log
+wandb/
+mlruns/
+
+# === Divers ===
+.env
+*.bak
