@@ -115,9 +115,7 @@ ImageNet representations.      for cellular micro-detail.
 
 ---
 
-## Explainable AI: Filtered Grad-CAM
 
-Standard Grad-CAM produces diffuse, noisy heatmaps. Dermascope AI uses a **4-stage filtering pipeline** to create precise, SAM-like attention maps:
 
 1. **Normalization** → scale activations to [0, 1]
 2. **Center-weighted Gaussian mask** → suppress corner/edge artifacts from zero-padding
@@ -165,7 +163,6 @@ Open `http://localhost:8501` in your browser.
 dermascope-ai/
 ├── app.py                         # Streamlit interactive dashboard
 ├── models.py                      # FiLM architecture (3 backbones)
-├── utils.py                       # TTA, Grad-CAM Sniper, metadata encoding
 ├── requirements.txt               # Python dependencies
 ├── README.md
 ├── REPORT_Dermascope_AI_Full.md   # Full technical research report

@@ -16,7 +16,6 @@ Le dataset initial présentait des défis majeurs :
 ## 3. Phase 2 : Entraînement Initial (V1) et Identification des Limites
 Nous avons initialement entraîné un ensemble de modèles (EfficientNet, ResNet, DenseNet) par simple concaténation des caractéristiques visuelles et tabulaires.
 - **Résultats V1 :** Sensibilité de 85%, AUC de 0.79.
-- **Réflexion et Limites :** L'explicabilité (Grad-CAM) montrait que les modèles "bavaient" sur la peau saine. La concaténation tardive des métadonnées n'influençait pas assez la prise de décision spatiale.
 
 ## 4. Phase 3 : Optimisation Architecturale (L'Approche FiLM)
 Pour pallier ces défauts, nous avons implémenté **FiLM (Feature-wise Linear Modulation)**.
@@ -33,5 +32,4 @@ Les résultats de la stratégie FiLM + Progressive Resizing ont été spectacula
 - **Sensibilité :** 95.42% (Détection de presque tous les cancers)
 - **Spécificité :** 70.32% (Très bon compromis médical pour réduire les fausses alertes)
 
-**Explicabilité (Grad-CAM Filtré) :** 
 L'implémentation d'un seuil de chaleur (<40%) a permis d'obtenir une précision "Sniper". Le modèle ignore désormais totalement la peau saine et les artefacts de bordure pour se concentrer au millimètre près sur les structures malignes, validant ainsi la fiabilité clinique de l'IA.

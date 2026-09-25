@@ -1,6 +1,6 @@
 """
 Dermascope AI — Utility Functions
-Metadata encoding, Test-Time Augmentation, and Filtered Grad-CAM.
+Metadata encoding and Test-Time Augmentation.
 """
 
 import torch
@@ -12,7 +12,7 @@ import torchvision.transforms as T
 # Categories fitted on training set (deterministic order)
 SEX_CATS = ['Female', 'Male', 'unknown']
 LOC_CATS = [
-    'abdomen', 'back', 'chest', 'ear', 'face', 'foot',
+    'abdomen', 'acral', 'back', 'chest', 'ear', 'face', 'foot',
     'genital', 'hand', 'lower extremity', 'neck', 'scalp',
     'trunk', 'unknown', 'upper extremity'
 ]
@@ -65,61 +65,3 @@ def predict_tta(model, image_tensor, meta_tensor):
             preds.append(torch.sigmoid(model(aug_fn(image_tensor), meta_tensor)))
     return torch.stack(preds).mean(dim=0)
 
-
-class GradCAM_Sniper:
-    """
-    Filtered Grad-CAM with center-weighted masking and morphological cleanup.
-    Produces SAM-like heatmaps that focus precisely on the lesion.
-    """
-
-    def __init__(self, model, target_layer):
-        self.model = model
-        self.gradients = None
-        self.activations = None
-        target_layer.register_forward_hook(self._save_act)
-        target_layer.register_full_backward_hook(self._save_grad)
-
-    def _save_act(self, module, inp, out):
-        self.activations = out.detach()
-
-    def _save_grad(self, module, grad_in, grad_out):
-        self.gradients = grad_out[0].detach()
-
-    def generate(self, image_tensor, meta_tensor, img_size=512):
-        self.model.eval()
-        output = self.model(image_tensor, meta_tensor)
-        self.model.zero_grad()
-        output.backward(torch.ones_like(output))
-
-        weights = self.gradients.mean(dim=[2, 3], keepdim=True)
-        cam = F.relu((weights * self.activations).sum(dim=1, keepdim=True))
-        cam = F.interpolate(cam, size=(img_size, img_size),
-                            mode='bilinear', align_corners=False)
-        cam = cam.squeeze().cpu().numpy()
-
-        # Filter 1: Normalize to [0, 1]
-        if cam.max() - cam.min() > 1e-8:
-            cam = (cam - cam.min()) / (cam.max() - cam.min())
-
-        # Filter 2: Center-weighted Gaussian mask (kills corner artifacts)
-        h, w = cam.shape
-        y = np.linspace(-1, 1, h)
-        x = np.linspace(-1, 1, w)
-        X, Y = np.meshgrid(x, y)
-        center_mask = np.exp(-(X ** 2 + Y ** 2) / (2 * 0.6 ** 2))
-        cam = cam * center_mask
-
-        if cam.max() > 1e-8:
-            cam = cam / cam.max()
-
-        # Filter 3: Aggressive threshold (keep only strong activations)
-        cam = np.where(cam < 0.45, 0, cam)
-
-        # Filter 4: Morphological cleanup (remove small dots, fill holes)
-        mask = (cam > 0).astype(np.uint8)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        cam = cam * mask
-
-        return cam, torch.sigmoid(output).item()

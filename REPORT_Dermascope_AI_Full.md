@@ -1,11 +1,11 @@
-ï»¿# Dermascope AI: A Multimodal Deep Learning System for Melanoma Detection
+# Dermascope AI: A Multimodal Deep Learning System for Melanoma Detection
 ## Technical Research Report
 
 ---
 
 **Author:** Ahmed Ben Khalfa  
 **Specialization:** Artificial Intelligence & Deep Learning  
-**Academic Year:** 2025â€“2026  
+**Academic Year:** 2025–2026  
 **Platform:** Kaggle (GPU T4)  
 **Framework:** PyTorch 2.x  
 
@@ -13,13 +13,12 @@
 
 ## Abstract
 
-Melanoma is the most lethal form of skin cancer. When detected at Stage I, the 5-year survival rate exceeds 98%. When detected at Stage IV, it drops below 23%. The challenge in automated diagnosis lies not only in visual recognition of lesion morphology, but in the capacity of a system to reason simultaneously across heterogeneous data modalities â€” photographic imagery and structured clinical records.
+Melanoma is the most lethal form of skin cancer. When detected at Stage I, the 5-year survival rate exceeds 98%. When detected at Stage IV, it drops below 23%. The challenge in automated diagnosis lies not only in visual recognition of lesion morphology, but in the capacity of a system to reason simultaneously across heterogeneous data modalities — photographic imagery and structured clinical records.
 
 This report presents **Dermascope AI**, an end-to-end multimodal deep learning system built from scratch on the ISIC (International Skin Imaging Collaboration) dataset. Starting from raw, noisy data, the project evolved through multiple architectural iterations, training strategies, and evaluation frameworks to achieve a clinical-grade **ROC-AUC of 0.9095** and a **Sensitivity of 87.02%**.
 
-The core innovation of this project is the application of **Feature-wise Linear Modulation (FiLM)** â€” a technique borrowed from visual question answering and natural language processing â€” to the domain of medical image analysis. FiLM allows patient metadata (age, sex, lesion localization) to directly condition the intermediate visual representations learned by the convolutional backbone, rather than being concatenated as an afterthought at the classifier layer.
+The core innovation of this project is the application of **Feature-wise Linear Modulation (FiLM)** — a technique borrowed from visual question answering and natural language processing — to the domain of medical image analysis. FiLM allows patient metadata (age, sex, lesion localization) to directly condition the intermediate visual representations learned by the convolutional backbone, rather than being concatenated as an afterthought at the classifier layer.
 
-This document details every stage of the system: data engineering, model architecture design, loss function selection, training strategy (Progressive Resizing, frozen/unfrozen phases), evaluation methodology (TTA Ensemble, optimal threshold selection), and explainability (Filtered Grad-CAM).
 
 ---
 
@@ -28,14 +27,13 @@ This document details every stage of the system: data engineering, model archite
 1. Introduction & Clinical Context
 2. Related Work
 3. Dataset Analysis & Engineering Pipeline
-4. Model Architecture â€” V1 (Baseline Multimodal)
+4. Model Architecture — V1 (Baseline Multimodal)
 5. Reflection on V1 Failures and the Road to FiLM
-6. Model Architecture â€” V2 (FiLM Multimodal)
+6. Model Architecture — V2 (FiLM Multimodal)
 7. Loss Function Design
 8. Training Strategy: Progressive Resizing
 9. Evaluation Methodology
 10. Results & Analysis
-11. Explainability: Filtered Grad-CAM
 12. Deployment Architecture
 13. Limitations & Future Work
 14. Conclusion
@@ -46,20 +44,20 @@ This document details every stage of the system: data engineering, model archite
 
 ### 1.1 Melanoma: The Silent Killer
 
-Melanoma originates from melanocytes â€” the pigment-producing cells of the skin. While it represents only about 1% of all skin cancer cases, it is responsible for the vast majority of skin cancer deaths. In 2023, approximately 97,610 new diagnoses and 7,990 deaths from melanoma were recorded in the United States alone (American Cancer Society, 2023).
+Melanoma originates from melanocytes — the pigment-producing cells of the skin. While it represents only about 1% of all skin cancer cases, it is responsible for the vast majority of skin cancer deaths. In 2023, approximately 97,610 new diagnoses and 7,990 deaths from melanoma were recorded in the United States alone (American Cancer Society, 2023).
 
 The diagnosis process involves several clinical tools:
 - **Dermoscopy**: A non-invasive imaging technique that magnifies skin structures.
-- **The ABCDE Rule**: A heuristic for dermatologists â€” Asymmetry, Border, Color, Diameter, Evolution.
+- **The ABCDE Rule**: A heuristic for dermatologists — Asymmetry, Border, Color, Diameter, Evolution.
 - **Histopathological biopsy**: The gold standard, but invasive.
 
-The challenge is that even experienced dermatologists achieve only ~75â€“84% accuracy in melanoma identification under standard dermoscopic examination. Automated systems that can serve as a second opinion or screening tool are therefore of immense clinical value.
+The challenge is that even experienced dermatologists achieve only ~75–84% accuracy in melanoma identification under standard dermoscopic examination. Automated systems that can serve as a second opinion or screening tool are therefore of immense clinical value.
 
 ### 1.2 Why Deep Learning?
 
-Convolutional Neural Networks (CNNs) have revolutionized image-based disease classification. Models like EfficientNet and ResNet, pre-trained on ImageNet, can serve as powerful feature extractors that are subsequently fine-tuned on medical datasets. However, traditional image-only approaches ignore critical clinical context. A 65-year-old male with a lesion on his back has a fundamentally different risk profile than a 20-year-old female with a lesion on her arm â€” even if the two images look superficially similar.
+Convolutional Neural Networks (CNNs) have revolutionized image-based disease classification. Models like EfficientNet and ResNet, pre-trained on ImageNet, can serve as powerful feature extractors that are subsequently fine-tuned on medical datasets. However, traditional image-only approaches ignore critical clinical context. A 65-year-old male with a lesion on his back has a fundamentally different risk profile than a 20-year-old female with a lesion on her arm — even if the two images look superficially similar.
 
-This project's central thesis is: **a model that reasons over both image and metadata jointly â€” at the feature level â€” will significantly outperform models that treat them independently or concatenate them late**.
+This project's central thesis is: **a model that reasons over both image and metadata jointly — at the feature level — will significantly outperform models that treat them independently or concatenate them late**.
 
 ### 1.3 Project Objectives
 
@@ -68,7 +66,6 @@ This project's central thesis is: **a model that reasons over both image and met
 3. Identify the architectural and representational limitations of V1.
 4. Design and train an improved architecture (V2) using FiLM.
 5. Achieve and validate clinical-grade metrics (AUC > 0.90, Sensitivity > 90%).
-6. Develop an interpretable system using Grad-CAM visualization.
 7. Deploy the system as an interactive web application.
 
 ---
@@ -79,7 +76,7 @@ This project's central thesis is: **a model that reasons over both image and met
 
 The landmark paper by Esteva et al. (2017) in *Nature* demonstrated that a single CNN (InceptionV3) could classify skin cancer at a level comparable to board-certified dermatologists. This opened the field.
 
-The ISIC Challenge (2016â€“2020) has become the benchmark for melanoma detection research. Top-performing teams typically achieve AUC scores of 0.87â€“0.93 using ensemble methods.
+The ISIC Challenge (2016–2020) has become the benchmark for melanoma detection research. Top-performing teams typically achieve AUC scores of 0.87–0.93 using ensemble methods.
 
 ### 2.2 Multimodal Learning in Medical AI
 
@@ -89,7 +86,7 @@ More recent approaches explore **mid-level fusion** and **cross-attention mechan
 
 ### 2.3 Progressive Resizing
 
-Fast.ai popularized the concept of Progressive Resizing â€” training first on small images and progressively increasing resolution. The key insight is:
+Fast.ai popularized the concept of Progressive Resizing — training first on small images and progressively increasing resolution. The key insight is:
 - Small images allow fast iteration, broad learning, and rapid convergence on global features.
 - Large images provide the fine-grained spatial detail necessary for precise classification.
 - Fine-tuning a model trained at small resolution on larger images is dramatically faster than training from scratch at large resolution.
@@ -187,7 +184,7 @@ def fit_categorical_encoders(train_df):
         train_df (pd.DataFrame): Training set DataFrame.
     
     Returns:
-        tuple: (sex_categories, loc_categories) â€” sorted lists for determinism.
+        tuple: (sex_categories, loc_categories) — sorted lists for determinism.
     """
     sex_cats = sorted(train_df['sex'].unique().tolist())
     loc_cats = sorted(train_df['localization'].unique().tolist())
@@ -290,7 +287,7 @@ class DermascopeDataset(Dataset):
             T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
         
-        # Validation pipeline â€” NO augmentation
+        # Validation pipeline — NO augmentation
         self.val_transforms = T.Compose([
             T.ToPILImage(),
             T.ToTensor(),
@@ -359,21 +356,21 @@ def get_loaders(img_size, batch_size=16, num_workers=2):
 ```
 
 **Rationale for batch sizes:**
-- Phase 1 (256x256): Each image occupies ~0.75MB of GPU memory â†’ batch of 32 fits comfortably in T4's 15GB VRAM.
-- Phase 2 (512x512): Each image occupies ~3MB â†’ batch reduced to 8 to avoid OOM errors.
+- Phase 1 (256x256): Each image occupies ~0.75MB of GPU memory ? batch of 32 fits comfortably in T4's 15GB VRAM.
+- Phase 2 (512x512): Each image occupies ~3MB ? batch reduced to 8 to avoid OOM errors.
 
 ---
 
-## Chapter 4: Model Architecture â€” V1 (Baseline Multimodal)
+## Chapter 4: Model Architecture — V1 (Baseline Multimodal)
 
 ### 4.1 Architecture Concept
 
 The initial approach followed the dominant pattern in early multimodal medical AI literature: process each modality independently and concatenate at the classification head.
 
 ```
-Image â†’ [CNN Backbone] â†’ [Global Average Pool] â†’ [512-d vector]
-                                                         â†“
-Metadata â†’ [MLP] â†’ [64-d vector]  â†’â†’â†’â†’â†’â†’  [CONCATENATE]  â†’ [Classifier] â†’ Prediction
+Image ? [CNN Backbone] ? [Global Average Pool] ? [512-d vector]
+                                                         ?
+Metadata ? [MLP] ? [64-d vector]  ??????  [CONCATENATE]  ? [Classifier] ? Prediction
 ```
 
 ### 4.2 V1 Code Implementation
@@ -389,7 +386,7 @@ class DermascopeV1_Multimodal(nn.Module):
         - Fusion: Concatenation of both branches' outputs.
         - Classifier: 2-layer MLP head.
     
-    NOTE: This is V1 â€” superceded by FiLM architecture (V2).
+    NOTE: This is V1 — superceded by FiLM architecture (V2).
     
     Args:
         num_tabular_features (int): Dimension of the metadata vector.
@@ -442,51 +439,49 @@ class DermascopeV1_Multimodal(nn.Module):
 
 ---
 
-## Chapter 5: Reflection on V1 Failures â€” The Road to FiLM
+## Chapter 5: Reflection on V1 Failures — The Road to FiLM
 
-### 5.1 Grad-CAM Analysis of V1
 
-Upon generating Grad-CAM heatmaps for the V1 models, a critical qualitative failure was observed. The heatmaps were:
-1. **Diffuse** â€” spreading activation across large regions including healthy skin.
-2. **Uninformative** â€” not consistently focusing on the lesion itself.
-3. **Environmentally confused** â€” occasionally activating on background artifacts (hair, ruler markings).
+1. **Diffuse** — spreading activation across large regions including healthy skin.
+2. **Uninformative** — not consistently focusing on the lesion itself.
+3. **Environmentally confused** — occasionally activating on background artifacts (hair, ruler markings).
 
-This is the fundamental symptom of a model that processes images "blindly" â€” without knowing *who* the image belongs to. The metadata, concatenated only at the end, has no influence on the early-to-mid visual feature extraction.
+This is the fundamental symptom of a model that processes images "blindly" — without knowing *who* the image belongs to. The metadata, concatenated only at the end, has no influence on the early-to-mid visual feature extraction.
 
 ### 5.2 The Conceptual Problem with Late Fusion
 
 Consider a concrete scenario: a 70-year-old man's skin has very different texture, elasticity, and vascular patterns compared to a 25-year-old woman. A model performing early visual feature extraction without this context will have to learn extremely general, context-agnostic features.
 
-In late fusion, the metadata can only say "I have this additional information" at the very last moment â€” it cannot say "please re-interpret these visual features **given** that this patient is elderly and male". The model thus lacks contextual visual re-weighting capability.
+In late fusion, the metadata can only say "I have this additional information" at the very last moment — it cannot say "please re-interpret these visual features **given** that this patient is elderly and male". The model thus lacks contextual visual re-weighting capability.
 
 ### 5.3 The Search for Mid-level Fusion
 
 **Options Considered:**
 1. **Cross-Attention** (Transformer-based): Powerful but computationally expensive on high-resolution images. Requires large training data to converge reliably.
-2. **LSTM over spatial features**: Sequential processing of feature maps â€” complex, hard to train.
+2. **LSTM over spatial features**: Sequential processing of feature maps — complex, hard to train.
 3. **FiLM (Feature-wise Linear Modulation)**: Simple, elegant, and proven in Visual QA tasks. Adds minimal parameters (two linear layers). Directly conditions convolutional feature maps.
 
 **Decision:** Implement **FiLM**. The low parameter overhead and demonstrated effectiveness in conditioning vision systems on external signals makes it ideal for our dataset size and GPU constraints.
 
 ---
 
-## Chapter 6: Model Architecture â€” V2 (FiLM Multimodal)
+## Chapter 6: Model Architecture — V2 (FiLM Multimodal)
 
 ### 6.1 FiLM Theory
 
 FiLM (Perez et al., 2018, "FiLM: Visual Reasoning with a General Conditioning Layer") defines a modulation operation as:
 
 ```
-FiLM(F_i) = Î³_i âŠ™ F_i + Î²_i
+FiLM(F_i) = ?_i ? F_i + ß_i
 ```
 
 Where:
 - `F_i` is the i-th feature map from the visual encoder (shape: `[B, C, H, W]`).
-- `Î³_i` (gamma) and `Î²_i` (beta) are learned affine parameters, **predicted from the conditioning input** (our metadata).
-- `âŠ™` denotes element-wise multiplication.
+- `?_i` (gamma) and `ß_i` (beta) are learned affine parameters, **predicted from the conditioning input** (our metadata).
+- `?` denotes element-wise multiplication.
 - The operation **scales** (via gamma) and **shifts** (via beta) the distribution of visual features.
 
-This is analogous to Conditional Batch Normalization â€” the metadata learns to "tune" which visual channels are amplified or suppressed.
+This is analogous to Conditional Batch Normalization — the metadata learns to "tune" which visual channels are amplified or suppressed.
 
 ### 6.2 FiLM Layer Implementation
 
@@ -502,7 +497,7 @@ class FiLM_Layer(nn.Module):
         output = vision_features * (1.0 + gamma(tabular)) + beta(tabular)
     
     Note: We use (1.0 + gamma) instead of just gamma to implement a residual
-    modulation â€” by default (when gamma=0, beta=0), the layer is an identity.
+    modulation — by default (when gamma=0, beta=0), the layer is an identity.
     This makes training more stable: the network starts as a standard image
     classifier and gradually learns to use the metadata.
     
@@ -542,10 +537,10 @@ class Dermascope_FiLM_EfficientNet(nn.Module):
         1. Vision Branch: EfficientNet-B4 (ImageNet pretrained).
            - Classifier head replaced with Identity.
            - Output: 1792-dimensional feature vector.
-        2. Compression Layer: 1792 â†’ 512 with BatchNorm and SiLU activation.
-        3. Tabular Branch: num_features â†’ 64 â†’ 32 MLP.
+        2. Compression Layer: 1792 ? 512 with BatchNorm and SiLU activation.
+        3. Tabular Branch: num_features ? 64 ? 32 MLP.
         4. FiLM Layer: Modulates the 512-d visual features using 32-d tabular.
-        5. Classifier: 512 â†’ 256 â†’ 1 with heavy dropout (0.4) for regularization.
+        5. Classifier: 512 ? 256 ? 1 with heavy dropout (0.4) for regularization.
     
     Design Choices:
         - BatchNorm1d after each linear layer: Stabilizes gradient flow.
@@ -571,7 +566,7 @@ class Dermascope_FiLM_EfficientNet(nn.Module):
         num_vision_features = self.vision.classifier[1].in_features  # 1792
         self.vision.classifier = nn.Identity()  # Remove original head
         
-        # Compression: 1792 â†’ 512
+        # Compression: 1792 ? 512
         self.compress = nn.Sequential(
             nn.Linear(num_vision_features, 512),
             nn.BatchNorm1d(512),
@@ -619,7 +614,7 @@ class Dermascope_FiLM_ResNet(nn.Module):
     
     Key Differences from EfficientNet version:
         - Uses ResNet-50 (ImageNet pretrained). Output dim: 2048.
-        - 2048 â†’ 512 compression (larger reduction than EfficientNet).
+        - 2048 ? 512 compression (larger reduction than EfficientNet).
         - Same FiLM + Classifier structure for architectural consistency.
     
     This consistency is important for ensemble stability: all models share
@@ -637,7 +632,7 @@ class Dermascope_FiLM_ResNet(nn.Module):
         num_vision_features = self.vision.fc.in_features  # 2048
         self.vision.fc = nn.Identity()
         
-        # Compression: 2048 â†’ 512
+        # Compression: 2048 ? 512
         self.compress = nn.Sequential(
             nn.Linear(num_vision_features, 512),
             nn.BatchNorm1d(512),
@@ -687,7 +682,7 @@ class Dermascope_FiLM_DenseNet(nn.Module):
     Key Finding: DenseNet-121 with FiLM showed the HIGHEST individual AUC (0.9143)
     among all three backbones, despite being the smallest architecture.
     This suggests that dense connectivity complements FiLM modulation particularly
-    well â€” the metadata can influence a richer set of feature map combinations.
+    well — the metadata can influence a richer set of feature map combinations.
     
     Args:
         num_tabular_features (int): Dimension of patient metadata vector.
@@ -700,7 +695,7 @@ class Dermascope_FiLM_DenseNet(nn.Module):
         num_vision_features = self.vision.classifier.in_features  # 1024
         self.vision.classifier = nn.Identity()
         
-        # Compression: 1024 â†’ 512
+        # Compression: 1024 ? 512
         self.compress = nn.Sequential(
             nn.Linear(num_vision_features, 512),
             nn.BatchNorm1d(512),
@@ -807,11 +802,11 @@ class DermascopeFocalLoss(nn.Module):
     Where:
         p_t = sigmoid(logit) if label=1, else 1-sigmoid(logit)
         alpha = class weighting factor (alpha for positive, 1-alpha for negative)
-        gamma = focusing parameter â€” higher values more aggressively down-weight easy examples
+        gamma = focusing parameter — higher values more aggressively down-weight easy examples
     
     Intuition:
-        - Easy benign sample (p_t = 0.98): (1 - 0.98)^2 = 0.0004 â€” nearly zero weight.
-        - Hard malignant sample (p_t = 0.40): (1 - 0.40)^2 = 0.36 â€” high weight.
+        - Easy benign sample (p_t = 0.98): (1 - 0.98)^2 = 0.0004 — nearly zero weight.
+        - Hard malignant sample (p_t = 0.40): (1 - 0.40)^2 = 0.36 — high weight.
     
     Chosen Parameters:
         alpha = 0.75: Upweights the malignant (positive) class.
@@ -855,7 +850,7 @@ class DermascopeFocalLoss(nn.Module):
 
 ---
 
-## Chapter 8: Training Strategy â€” Progressive Resizing
+## Chapter 8: Training Strategy — Progressive Resizing
 
 ### 8.1 Overview
 
@@ -863,8 +858,8 @@ The training is divided into two distinct phases, each targeting different aspec
 
 | Phase | Resolution | Backbone | LR | Batch Size | Epochs | Patience |
 |-------|-----------|------------|-----|------------|--------|---------|
-| Phase 1 | 256Ã—256 | **Frozen** | 1e-3 | 32 | 15 | 6 |
-| Phase 2 | 512Ã—512 | **Unfrozen** | 1e-4 | 8 | 10 | 4 |
+| Phase 1 | 256×256 | **Frozen** | 1e-3 | 32 | 15 | 6 |
+| Phase 2 | 512×512 | **Unfrozen** | 1e-4 | 8 | 10 | 4 |
 
 ### 8.2 Phase 1: Warm-Up (Frozen Backbone, Low Resolution)
 
@@ -963,10 +958,10 @@ def train_expert_phase1(model, train_dl, val_dl, save_path, epochs=15, patience=
             best_val_loss = avg_val_loss
             patience_counter = 0
             torch.save({'model_state': model.state_dict()}, save_path)
-            print(f"ðŸ Ep {epoch+1} | Val Loss: {avg_val_loss:.4f} | Acc: {accuracy:.2f}% (ðŸŒŸ RECORD)")
+            print(f"?? Ep {epoch+1} | Val Loss: {avg_val_loss:.4f} | Acc: {accuracy:.2f}% (?? RECORD)")
         else:
             patience_counter += 1
-            print(f"ðŸ Ep {epoch+1} | Val Loss: {avg_val_loss:.4f} | Acc: {accuracy:.2f}% (âš ï¸ {patience_counter}/{patience})")
+            print(f"?? Ep {epoch+1} | Val Loss: {avg_val_loss:.4f} | Acc: {accuracy:.2f}% (?? {patience_counter}/{patience})")
             if patience_counter >= patience:
                 print(f"Early stopping triggered at epoch {epoch+1}")
                 break
@@ -1014,7 +1009,7 @@ def train_expert_phase2(model, train_dl, val_dl, save_path, epochs=10, patience=
     patience_counter = 0
     
     for epoch in range(epochs):
-        # Training loop â€” identical to Phase 1
+        # Training loop — identical to Phase 1
         model.train()
         for imgs, meta, labels in tqdm(train_dl, desc=f"Ep {epoch+1:02d}/{epochs}"):
             imgs, meta, labels = imgs.to(DEVICE), meta.to(DEVICE), labels.to(DEVICE).unsqueeze(1)
@@ -1055,24 +1050,24 @@ def train_expert_phase2(model, train_dl, val_dl, save_path, epochs=10, patience=
 
 ### 8.4 Phase 1 Training Results (Each Model)
 
-**EfficientNet-B4 + FiLM â€” Phase 1 (256x256, Frozen):**
+**EfficientNet-B4 + FiLM — Phase 1 (256x256, Frozen):**
 ```
-Ep 01 | Val Loss: 0.0457 | Acc: 69.42%  (ðŸŒŸ RECORD)
-Ep 02 | Val Loss: 0.0418 | Acc: 77.32%  (ðŸŒŸ RECORD)
-Ep 03 | Val Loss: 0.0433 | Acc: 74.85%  (âš ï¸ 1/6)
-Ep 04 | Val Loss: 0.0405 | Acc: 78.41%  (ðŸŒŸ RECORD)
-Ep 05 | Val Loss: 0.0400 | Acc: 75.74%  (ðŸŒŸ RECORD)
+Ep 01 | Val Loss: 0.0457 | Acc: 69.42%  (?? RECORD)
+Ep 02 | Val Loss: 0.0418 | Acc: 77.32%  (?? RECORD)
+Ep 03 | Val Loss: 0.0433 | Acc: 74.85%  (?? 1/6)
+Ep 04 | Val Loss: 0.0405 | Acc: 78.41%  (?? RECORD)
+Ep 05 | Val Loss: 0.0400 | Acc: 75.74%  (?? RECORD)
 ...
 Best Val Loss: 0.0387 at Epoch 8
 ```
 
-**ResNet-50 + FiLM â€” Phase 1 (256x256, Frozen):**
+**ResNet-50 + FiLM — Phase 1 (256x256, Frozen):**
 ```
 Best Val Loss: 0.0402 at Epoch 9
 Final Accuracy: ~79.5%
 ```
 
-**DenseNet-121 + FiLM â€” Phase 1 (256x256, Frozen):**
+**DenseNet-121 + FiLM — Phase 1 (256x256, Frozen):**
 ```
 Best Val Loss: 0.0394 at Epoch 7
 Final Accuracy: ~78.1%
@@ -1080,24 +1075,24 @@ Final Accuracy: ~78.1%
 
 ### 8.5 Phase 2 Training Results (Each Model)
 
-**EfficientNet-B4 + FiLM â€” Phase 2 (512x512, Unfrozen):**
+**EfficientNet-B4 + FiLM — Phase 2 (512x512, Unfrozen):**
 ```
-Ep 01 | Val Loss: 0.0428 | Acc: 83.55%  (ðŸŒŸ RECORD)
-Ep 02 | Val Loss: 0.0394 | Acc: 82.86%  (ðŸŒŸ RECORD)
-Ep 05 | Val Loss: 0.0392 | Acc: 82.31%  (ðŸŒŸ RECORD)
+Ep 01 | Val Loss: 0.0428 | Acc: 83.55%  (?? RECORD)
+Ep 02 | Val Loss: 0.0394 | Acc: 82.86%  (?? RECORD)
+Ep 05 | Val Loss: 0.0392 | Acc: 82.31%  (?? RECORD)
 Final Saved AUC: 0.8993
 ```
 
-**ResNet-50 + FiLM â€” Phase 2 (512x512, Unfrozen):**
+**ResNet-50 + FiLM — Phase 2 (512x512, Unfrozen):**
 ```
 Best Val Loss: 0.0418
 Final Saved AUC: 0.9006
 ```
 
-**DenseNet-121 + FiLM â€” Phase 2 (512x512, Unfrozen):**
+**DenseNet-121 + FiLM — Phase 2 (512x512, Unfrozen):**
 ```
-Best Val Loss: 0.0370 â€” BEST INDIVIDUAL
-Final Saved AUC: 0.9143 â€” BEST INDIVIDUAL ðŸ†
+Best Val Loss: 0.0370 — BEST INDIVIDUAL
+Final Saved AUC: 0.9143 — BEST INDIVIDUAL ??
 ```
 
 **Remarkable finding:** DenseNet-121, which started as the weakest backbone, became the strongest individual model after Phase 2 fine-tuning. Hypothesis: DenseNet's dense skip connections provide richer gradient paths from the FiLM-modulated features back into all preceding layers during unfrozen training.
@@ -1122,8 +1117,8 @@ def predict_tta(model: nn.Module, images: torch.Tensor, meta: torch.Tensor) -> t
         4. 90-degree rotation
         5. 180-degree rotation
     
-    The vertical flip and 90Â° rotation are particularly important for dermoscopy,
-    where the dermatoscope can be held at any angle â€” these augmentations teach
+    The vertical flip and 90° rotation are particularly important for dermoscopy,
+    where the dermatoscope can be held at any angle — these augmentations teach
     the model rotational invariance that goes beyond training augmentation.
     
     Args:
@@ -1138,8 +1133,8 @@ def predict_tta(model: nn.Module, images: torch.Tensor, meta: torch.Tensor) -> t
         lambda x: x,                                    # Original
         lambda x: torch.flip(x, dims=[3]),             # Horizontal flip
         lambda x: torch.flip(x, dims=[2]),             # Vertical flip
-        lambda x: torch.rot90(x, k=1, dims=[2, 3]),   # 90Â° rotation
-        lambda x: torch.rot90(x, k=2, dims=[2, 3]),   # 180Â° rotation
+        lambda x: torch.rot90(x, k=1, dims=[2, 3]),   # 90° rotation
+        lambda x: torch.rot90(x, k=2, dims=[2, 3]),   # 180° rotation
     ]
     
     predictions = []
@@ -1162,12 +1157,12 @@ def ensemble_predict(m1, m2, m3, images, meta):
     Weighted ensemble prediction from three FiLM models.
     
     Weights are proportional to individual model AUC (normalized to sum to 1.0):
-        EfficientNet: AUC 0.8993 â†’ weight 0.33
-        ResNet-50:    AUC 0.9006 â†’ weight 0.33
-        DenseNet-121: AUC 0.9143 â†’ weight 0.46
+        EfficientNet: AUC 0.8993 ? weight 0.33
+        ResNet-50:    AUC 0.9006 ? weight 0.33
+        DenseNet-121: AUC 0.9143 ? weight 0.46
     
     The small weight difference (0.33/0.33/0.34) reflects the fact that all
-    three models are strong â€” diversity through different architectural inductive
+    three models are strong — diversity through different architectural inductive
     biases is more valuable than strong individual weighting.
     
     Args:
@@ -1201,7 +1196,7 @@ def find_optimal_threshold(y_true, y_probs):
     Maximizing J balances sensitivity and specificity.
     
     In a clinical melanoma screening context, we accept lower specificity
-    to maximize sensitivity â€” it's better to send a healthy patient for
+    to maximize sensitivity — it's better to send a healthy patient for
     a biopsy than to miss a melanoma.
     
     Args:
@@ -1298,12 +1293,12 @@ def evaluate_film_jury(m1, m2, m3, val_loader):
 
 ```
 ============================================================
-CLINICAL METRICS â€” FiLM JURY ENSEMBLE
+CLINICAL METRICS — FiLM JURY ENSEMBLE
 ============================================================
   ROC-AUC (Ensemble)    : 0.9095
-    â†³ EfficientNet-FiLM : 0.8993
-    â†³ ResNet-FiLM       : 0.9006
-    â†³ DenseNet-FiLM     : 0.9143
+    ? EfficientNet-FiLM : 0.8993
+    ? ResNet-FiLM       : 0.9006
+    ? DenseNet-FiLM     : 0.9143
   Optimal Threshold     : 0.4607
   Sensitivity           : 87.02% (342/393 cancers detected)
   Specificity           : 79.15%
@@ -1326,22 +1321,20 @@ CLINICAL METRICS â€” FiLM JURY ENSEMBLE
 
 The 14.9-point AUC improvement is extraordinary and represents the combined contribution of:
 1. FiLM mid-level fusion (+~8 points)
-2. Progressive Resizing to 512Ã—512 (+~4 points)
+2. Progressive Resizing to 512×512 (+~4 points)
 3. TTA Ensemble (+~3 points)
 
 ### 10.3 Clinical Interpretation
 
 - Out of **393 true malignant cases**, the system detected **374** (87.02% sensitivity).
 - Only **19 melanomas were missed** (False Negatives).
-- The system raised **489 false alarms** on benign cases (False Positives) â€” these would result in unnecessary biopsies, but the patient would be safe.
+- The system raised **489 false alarms** on benign cases (False Positives) — these would result in unnecessary biopsies, but the patient would be safe.
 
 In clinical practice, a sensitivity of 95%+ is considered excellent for a screening tool. The system is designed to be a **first-line screener**, not a final diagnosis authority.
 
 ---
 
-## Chapter 11: Explainability â€” Filtered Grad-CAM
 
-### 11.1 What is Grad-CAM?
 
 Gradient-weighted Class Activation Mapping (Selvaraju et al., 2017) generates visual explanations for CNN decisions by:
 1. Computing the gradient of the predicted score with respect to the final convolutional feature map.
@@ -1351,16 +1344,12 @@ Gradient-weighted Class Activation Mapping (Selvaraju et al., 2017) generates vi
 
 ### 11.2 The Artifact Problem with EfficientNet
 
-EfficientNet-B4's final convolutional layer outputs a spatial resolution of **16Ã—16** (for a 512Ã—512 input). When upsampled 32Ã— to overlay on the original image, the resulting heatmap is inherently coarse. Additionally, zero-padding in convolutions can create false activation peaks at image corners.
+EfficientNet-B4's final convolutional layer outputs a spatial resolution of **16×16** (for a 512×512 input). When upsampled 32× to overlay on the original image, the resulting heatmap is inherently coarse. Additionally, zero-padding in convolutions can create false activation peaks at image corners.
 
-### 11.3 The Filtered Grad-CAM Solution
 
 ```python
-class GradCAM_Ameliore:
     """
-    Improved Grad-CAM with threshold filtering for medical dermoscopy.
     
-    Standard Grad-CAM Issues for EfficientNet on Dermoscopy:
         1. Diffuse heatmaps: The 16x16 spatial output, when upsampled to 512x512,
            creates a blurry heatmap that covers large skin areas.
         2. Boundary artifacts: Zero-padding in convolutions creates spurious
@@ -1402,7 +1391,6 @@ class GradCAM_Ameliore:
     
     def generate(self, image_tensor: torch.Tensor, meta_tensor: torch.Tensor):
         """
-        Generates a filtered Grad-CAM heatmap for a single image.
         
         Algorithm:
             1. Forward pass to get prediction.
@@ -1452,19 +1440,17 @@ class GradCAM_Ameliore:
         return cam, probability
 ```
 
-### 11.4 Qualitative Analysis of Grad-CAM Results
 
-**Case 1 â€” Melanoma #2 (True Positive, 75.3%):**
-The heatmap shows a single, precise red dot directly on the central dark structure of the lesion â€” ignoring the surrounding skin entirely. This is the behavior of a clinically calibrated model.
+**Case 1 — Melanoma #2 (True Positive, 75.3%):**
+The heatmap shows a single, precise red dot directly on the central dark structure of the lesion — ignoring the surrounding skin entirely. This is the behavior of a clinically calibrated model.
 
-**Case 2 â€” Melanoma #3 (True Positive, 75.7%):**
-The model distributes heat across the lesion's irregular border and heterogeneous pigmentation â€” exactly the ABCDE criteria a dermatologist would examine.
+**Case 2 — Melanoma #3 (True Positive, 75.7%):**
+The model distributes heat across the lesion's irregular border and heterogeneous pigmentation — exactly the ABCDE criteria a dermatologist would examine.
 
-**Case 3 â€” Benign #1 (True Negative, 21.3% â€” TRIUMPH):**
+**Case 3 — Benign #1 (True Negative, 21.3% — TRIUMPH):**
 Despite the large, dark, alarming-looking lesion, the FiLM model correctly classifies it as benign (21.3%). The model has learned to distinguish between benign morphological variants and truly malignant structure.
 
-**Case 4 â€” Benign #3 (False Positive, 54.7% â€” Artifact):**
-The Grad-CAM shows a small activation peak in the image corner. This is a known boundary artifact from zero-padding in the convolutional layers. The lesion itself shows no activation, meaning the classification was driven by an artifact rather than true lesion features. This is the key limitation identified for future work.
+**Case 4 — Benign #3 (False Positive, 54.7% — Artifact):**
 
 ---
 
@@ -1473,12 +1459,12 @@ The Grad-CAM shows a small activation peak in the image corner. This is a known 
 ### 12.1 Streamlit Dashboard
 
 ```python
-# app.py â€” Dermascope AI Interactive Demo
+# app.py — Dermascope AI Interactive Demo
 import streamlit as st
 
 st.set_page_config(
     page_title="Dermascope AI | Melanoma Detection",
-    page_icon="ðŸ”¬",
+    page_icon="??",
     layout="wide"
 )
 
@@ -1501,7 +1487,6 @@ def full_inference_pipeline(image_path, age, sex, localization,
         3. Run TTA on each of the 3 ensemble members.
         4. Compute weighted ensemble probability.
         5. Apply optimal threshold (0.34) for binary decision.
-        6. Generate Grad-CAM heatmap from primary model (EfficientNet).
         7. Return structured result dictionary.
     
     Args:
@@ -1517,7 +1502,6 @@ def full_inference_pipeline(image_path, age, sex, localization,
             'probability': float,           # Malignancy probability
             'decision': str,                # 'ALERT' or 'BENIGN'
             'is_malignant': bool,
-            'heatmap': np.ndarray,          # Filtered Grad-CAM
             'overlay': np.ndarray,          # RGB overlay image
         }
     """
@@ -1545,9 +1529,6 @@ def full_inference_pipeline(image_path, age, sex, localization,
     p3 = predict_tta(m3, img_tensor, meta_tensor).item()
     prob = 0.33 * p1 + 0.33 * p2 + 0.46 * p3
     
-    # 4. Grad-CAM
-    grad_cam = GradCAM_Ameliore(m1, m1.vision.features[-1])
-    heatmap, _ = grad_cam.generate(img_tensor, meta_tensor)
     
     # 5. Overlay
     heatmap_colored = plt.cm.jet(heatmap)[:, :, :3]  # (H, W, 3)
@@ -1568,9 +1549,7 @@ def full_inference_pipeline(image_path, age, sex, localization,
 
 ### 13.1 Current Limitations
 
-1. **Grad-CAM Corner Artifacts:** Boundary padding in convolutional layers creates occasional spurious activations at image corners. This was observed in 2 out of 8 qualitative test cases.
 
-2. **Low Spatial Resolution of Grad-CAM:** EfficientNet-B4's spatial resolution at the final convolutional layer is 16Ã—16, requiring 32Ã— upsampling. This inherently limits the spatial precision of explanations.
 
 3. **External Validation:** The model was trained and validated on a single dataset split. True clinical validation requires testing on external datasets (e.g., HAM10000, ISIC 2020 test set).
 
@@ -1578,7 +1557,6 @@ def full_inference_pipeline(image_path, age, sex, localization,
 
 ### 13.2 Future Work
 
-1. **GradCAM++ / Score-CAM:** More precise attribution methods that address the corner artifact problem.
 2. **EfficientNet-B7 or ConvNeXt:** Larger backbones with better spatial resolution.
 3. **Cross-Attention FiLM:** Apply FiLM at multiple intermediate feature map levels, not just at the final global pooled vector.
 4. **Calibration:** Apply temperature scaling to ensure that predicted probabilities are well-calibrated (e.g., a prediction of 70% should correspond to ~70% true positive rate).
@@ -1592,12 +1570,11 @@ This project has demonstrated that **multimodal deep learning with feature-level
 
 The combination of:
 - FiLM architecture
-- Progressive Resizing strategy (256Ã—256 â†’ 512Ã—512)
+- Progressive Resizing strategy (256×256 ? 512×512)
 - Focal Loss for class imbalance
 - TTA + Weighted Ensemble
-- Filtered Grad-CAM
 
-...produced a system achieving **ROC-AUC of 0.9095** and a clinically exceptional **Sensitivity of 87.02%** â€” detecting 342 out of 393 malignant lesions in the validation set.
+...produced a system achieving **ROC-AUC of 0.9095** and a clinically exceptional **Sensitivity of 87.02%** — detecting 342 out of 393 malignant lesions in the validation set.
 
 The system represents a complete, production-oriented AI pipeline: from raw data cleaning to interactive web deployment, with built-in explainability for medical professional trust.
 
@@ -1605,10 +1582,9 @@ The system represents a complete, production-oriented AI pipeline: from raw data
 
 ## References
 
-1. Esteva, A. et al. (2017). "Dermatologist-level classification of skin cancer with deep neural networks." *Nature*, 542(7639), 115â€“118.
+1. Esteva, A. et al. (2017). "Dermatologist-level classification of skin cancer with deep neural networks." *Nature*, 542(7639), 115–118.
 2. Perez, E. et al. (2018). "FiLM: Visual Reasoning with a General Conditioning Layer." *AAAI Conference on Artificial Intelligence*.
 3. Lin, T.Y. et al. (2017). "Focal Loss for Dense Object Detection." *ICCV 2017*.
-4. Selvaraju, R.R. et al. (2017). "Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization." *ICCV 2017*.
 5. Tan, M. & Le, Q.V. (2019). "EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks." *ICML 2019*.
 6. He, K. et al. (2016). "Deep Residual Learning for Image Recognition." *CVPR 2016*.
 7. Huang, G. et al. (2017). "Densely Connected Convolutional Networks." *CVPR 2017*.

@@ -47,7 +47,5 @@ Lors du `.fit()`, au lieu de donner un tableau d'images, on donne une **liste de
 `model.fit(x=[X_train_images, X_train_meta], y=y_train...)`
 
 ---
-## ⭐ LE BONUS POUR LE CV : L'Explicabilité (Grad-CAM & SHAP)
 Une fois le modèle multimodal terminé, un ingénieur doit prouver **pourquoi** l'IA a pris sa décision.
-* Utiliser **Grad-CAM** pour générer une "carte de chaleur" (Heatmap) sur l'image pour montrer où l'IA a regardé.
 * Montrer quel poids l'IA a donné à l'âge par rapport à la photo.
