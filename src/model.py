@@ -1,127 +1,138 @@
 """
 ============================================================
-DermaScope AI — Modèle et Fonction de Coût
+DermaScope AI — Modèles Multimodaux FiLM
 ============================================================
-Auteur  : Bilel Kahma
-Projet  : Détection de Pathologies Cutanées par Deep Learning
-============================================================
-Architecture du réseau multimodal EfficientNet-B4 + MLP Tabulaire
-et implémentation de la Focal Loss binaire.
+Architecture avancée utilisant la Feature-wise Linear Modulation (FiLM)
+pour conditionner l'extraction de caractéristiques visuelles par les
+métadonnées cliniques.
 """
 
 import torch
 import torch.nn as nn
-from torchvision.models import efficientnet_b4, EfficientNet_B4_Weights
+import torch.nn.functional as F
+from torchvision.models import (
+    efficientnet_b4, EfficientNet_B4_Weights,
+    resnet50, ResNet50_Weights,
+    densenet121, DenseNet121_Weights
+)
 
-from src import config
+__all__ = ['FiLM_Layer', 'Dermascope_FiLM_EfficientNet', 'Dermascope_FiLM_Alternative', 'DermascopeFocalLoss']
 
-__all__ = ['DermascopeMultimodal', 'DermascopeFocalLoss', 'create_model']
-
-class DermascopeMultimodal(nn.Module):
+class FiLM_Layer(nn.Module):
     """
-    Architecture multimodale pour la détection de mélanomes.
-    
-    Rationnel: Fusion "Late Fusion" des caractéristiques visuelles (EfficientNet-B4)
-    et cliniques (MLP) au sein d'une tête de classification combinée.
+    Couche de Feature-wise Linear Modulation.
+    Les métadonnées génèrent les paramètres Gamma et Beta qui vont
+    multiplier et additionner les features visuelles.
     """
+    def __init__(self, tabular_dim: int, vision_dim: int):
+        super().__init__()
+        self.gamma = nn.Linear(tabular_dim, vision_dim)
+        self.beta = nn.Linear(tabular_dim, vision_dim)
+        
+    def forward(self, v: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+        # Modulation affine : Vision * (1 + Gamma(Tabular)) + Beta(Tabular)
+        return v * (1.0 + self.gamma(t)) + self.beta(t)
+
+
+class Dermascope_FiLM_EfficientNet(nn.Module):
     def __init__(self, num_tabular_features: int):
-        super(DermascopeMultimodal, self).__init__()
+        super().__init__()
+        self.vision = efficientnet_b4(weights=EfficientNet_B4_Weights.DEFAULT)
+        num_v = self.vision.classifier[1].in_features
+        self.vision.classifier = nn.Identity()
         
-        # 1. Branche Visuelle (EfficientNet-B4 ImageNet)
-        self.backbone = efficientnet_b4(weights=EfficientNet_B4_Weights.IMAGENET1K_V1)
-        in_features = self.backbone.classifier[1].in_features
-        # Remplacement du classifieur par une couche Identité pour extraire les features
-        self.backbone.classifier = nn.Identity()
-        
-        # Compression des features visuelles
-        self.vision_compress = nn.Sequential(
-            nn.Linear(in_features, 512),
-            nn.BatchNorm1d(512),
+        self.compress = nn.Sequential(
+            nn.Linear(num_v, 512), 
+            nn.BatchNorm1d(512), 
             nn.SiLU()
         )
         
-        # 2. Branche Tabulaire (MLP)
-        self.tabular_branch = nn.Sequential(
-            nn.Linear(num_tabular_features, 64),
-            nn.BatchNorm1d(64),
-            nn.SiLU(),
-            nn.Dropout(0.2),
-            nn.Linear(64, 32),
-            nn.BatchNorm1d(32),
+        self.tabular = nn.Sequential(
+            nn.Linear(num_tabular_features, 64), 
+            nn.BatchNorm1d(64), 
+            nn.SiLU(), 
+            nn.Dropout(0.2), 
+            nn.Linear(64, 32), 
+            nn.BatchNorm1d(32), 
             nn.SiLU()
         )
         
-        # 3. Tête de Fusion
-        # Concaténation: 512 (Vision) + 32 (Tabulaire) = 544
-        self.fusion_head = nn.Sequential(
-            nn.Linear(512 + 32, 256),
-            nn.BatchNorm1d(256),
-            nn.SiLU(),
-            nn.Dropout(0.4),
-            nn.Linear(256, 1) # Sortie pour BCEWithLogitsLoss
+        self.film = FiLM_Layer(tabular_dim=32, vision_dim=512)
+        self.classifier = nn.Sequential(
+            nn.Linear(512, 256), 
+            nn.BatchNorm1d(256), 
+            nn.SiLU(), 
+            nn.Dropout(0.4), 
+            nn.Linear(256, 1)
         )
         
     def forward(self, images: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
-        """
-        Passe avant du modèle.
-        """
-        # Features visuelles
-        v_features = self.backbone(images)
-        v_features = self.vision_compress(v_features)
+        v = self.compress(self.vision(images))
+        t = self.tabular(metadata)
+        fused = self.film(v, t)
+        return self.classifier(fused)
+
+
+class Dermascope_FiLM_Alternative(nn.Module):
+    def __init__(self, num_tabular_features: int, modele: str = "resnet50"):
+        super().__init__()
+        if modele == "resnet50": 
+            self.vision = resnet50(weights=ResNet50_Weights.DEFAULT)
+            num_v = self.vision.fc.in_features
+            self.vision.fc = nn.Identity()
+        elif modele == "densenet121": 
+            self.vision = densenet121(weights=DenseNet121_Weights.DEFAULT)
+            num_v = self.vision.classifier.in_features
+            self.vision.classifier = nn.Identity()
+        else:
+            raise ValueError("Modèle non supporté. Choisissez resnet50 ou densenet121.")
+            
+        self.compress = nn.Sequential(
+            nn.Linear(num_v, 512), 
+            nn.BatchNorm1d(512), 
+            nn.SiLU()
+        )
         
-        # Features tabulaires
-        t_features = self.tabular_branch(metadata)
+        self.tabular = nn.Sequential(
+            nn.Linear(num_tabular_features, 64), 
+            nn.BatchNorm1d(64), 
+            nn.SiLU(), 
+            nn.Dropout(0.2), 
+            nn.Linear(64, 32), 
+            nn.BatchNorm1d(32), 
+            nn.SiLU()
+        )
         
-        # Fusion
-        fused = torch.cat([v_features, t_features], dim=1)
-        logits = self.fusion_head(fused)
+        self.film = FiLM_Layer(tabular_dim=32, vision_dim=512)
+        self.classifier = nn.Sequential(
+            nn.Linear(512, 256), 
+            nn.BatchNorm1d(256), 
+            nn.SiLU(), 
+            nn.Dropout(0.4), 
+            nn.Linear(256, 1)
+        )
         
-        return logits
+    def forward(self, images: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
+        v = self.compress(self.vision(images))
+        t = self.tabular(metadata)
+        fused = self.film(v, t)
+        return self.classifier(fused)
 
 
 class DermascopeFocalLoss(nn.Module):
     """
-    Binary Focal Loss optimisée pour les classes déséquilibrées.
-    
-    Rationnel: Pénalise moins les prédictions sûres et donne un poids 
-    supplémentaire aux erreurs de la classe positive (Maligne).
+    Focal Loss optimisée pour les datasets déséquilibrés.
     """
-    def __init__(self, alpha: float = config.FOCAL_ALPHA, gamma: float = config.FOCAL_GAMMA):
-        super(DermascopeFocalLoss, self).__init__()
+    def __init__(self, alpha: float = 0.75, gamma: float = 2.0): 
+        super().__init__()
         self.alpha = alpha
         self.gamma = gamma
-        # Réduction 'none' pour appliquer la pondération manuelle
-        self.bce_with_logits = nn.BCEWithLogitsLoss(reduction='none')
-
+        
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        """
-        Calcule la perte Focal.
-        """
-        bce_loss = self.bce_with_logits(logits, targets)
-        
-        # Calcul de pt (probabilité de la vraie classe)
         probs = torch.sigmoid(logits)
-        pt = torch.where(targets == 1, probs, 1 - probs)
+        pt = targets * probs + (1 - targets) * (1 - probs)
+        alpha_t = targets * self.alpha + (1 - targets) * (1 - self.alpha)
         
-        # Poids Alpha: on pèse la classe 1 avec alpha, et la classe 0 avec (1-alpha)
-        alpha_t = torch.where(targets == 1, self.alpha, 1 - self.alpha)
-        
-        # Formule de la Focal Loss
-        focal_loss = alpha_t * (1 - pt) ** self.gamma * bce_loss
-        
+        bce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')
+        focal_loss = alpha_t * ((1 - pt) ** self.gamma) * bce_loss
         return focal_loss.mean()
-
-
-def create_model(num_tabular_features: int, device: torch.device) -> nn.Module:
-    """
-    Instancie le modèle multimodal et le charge sur le device.
-    
-    Args:
-        num_tabular_features (int): Nombre de features du vecteur clinique.
-        device (torch.device): CPU ou GPU.
-        
-    Returns:
-        nn.Module: Modèle DermaScope.
-    """
-    model = DermascopeMultimodal(num_tabular_features)
-    return model.to(device)

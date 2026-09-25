@@ -1,213 +1,250 @@
-# 🔬 DermaScope AI — Détection de Pathologies Cutanées par Deep Learning
+<div align="center">
 
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://python.org)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.1%2B-red?logo=pytorch)](https://pytorch.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Dataset](https://img.shields.io/badge/Dataset-ISIC%20HAM10000-orange)](https://www.isic-archive.com/)
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=32&pause=1000&color=0E75B6&center=true&vCenter=true&width=700&lines=Dermascope+AI+%F0%9F%94%AC;Multimodal+Deep+Learning;Early+Melanoma+Detection;ROC-AUC%3A+0.9095+%7C+Sensitivity%3A+87.0%25" alt="Typing SVG" />
 
-> **⚠️ AVERTISSEMENT MÉDICAL** : Ce projet est un exercice d'apprentissage et un prototype de recherche. Il n'est **PAS** un dispositif médical certifié (CE/FDA). Il ne remplace **JAMAIS** un dermatologue. Toute lésion suspecte nécessite une consultation médicale et potentiellement une biopsie.
+<br/>
+
+<p>
+  <img src="https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white"/>
+  <img src="https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white"/>
+  <img src="https://img.shields.io/badge/scikit--learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Kaggle-20BEFF?style=for-the-badge&logo=kaggle&logoColor=white"/>
+</p>
+
+<p>
+  <img src="https://img.shields.io/badge/ROC--AUC-0.9095-success?style=flat-square"/>
+  <img src="https://img.shields.io/badge/Sensitivity-87.02%25-success?style=flat-square"/>
+  <img src="https://img.shields.io/badge/Specificity-79.15%25-success?style=flat-square"/>
+  <img src="https://img.shields.io/badge/Architecture-FiLM%20Ensemble-blue?style=flat-square"/>
+  <img src="https://img.shields.io/badge/Training-Progressive%20Resizing-orange?style=flat-square"/>
+</p>
+
+</div>
 
 ---
 
-## 📋 Description
+## What is Dermascope AI?
 
-**DermaScope AI** est un système d'Intelligence Artificielle multimodal de détection de pathologies cutanées, développé dans le cadre d'un cours de Deep Learning. Le système combine :
+**Dermascope AI** is a multimodal deep learning system for early melanoma detection. It fuses **high-resolution dermoscopic imagery** with **structured patient clinical data** (age, sex, lesion localization) at the feature extraction level using **Feature-wise Linear Modulation (FiLM)**.
 
-- **Vision par Ordinateur (Computer Vision)** : Analyse d'images dermoscopiques via EfficientNet-B4
-- **Données Cliniques Structurées** : Métadonnées patient (âge, sexe, localisation anatomique)
-- **Architecture de Fusion** : Réseau en "Y" combinant les deux modalités pour un diagnostic robuste
+The model doesn't just look at a skin lesion — it looks at the lesion **through the lens of who the patient is**.
 
-Le modèle classe les lésions cutanées en **Bénin (0)** ou **Malin/Suspect (1)** (Mélanome, Carcinome, Kératose actinique).
+> **Clinical Goal:** Provide dermatologists with a high-sensitivity AI second opinion to reduce missed diagnoses during skin cancer screening.
 
 ---
 
-## 🏗️ Architecture
+## Performance
+
+| Metric | Score |
+|--------|:---:|
+| **ROC-AUC** | **0.9095** |
+| **Sensitivity (Recall)** | **87.02%** |
+| **Specificity** | **79.15%** |
+| **Optimal Threshold (Youden)** | **0.4607** |
+
+### Classification Report (Optimal Threshold)
 
 ```
-                    📸 Image (512×512×3)         📋 Métadonnées (âge, sexe, localisation)
-                           │                                    │
-                    ┌──────▼──────┐                    ┌───────▼────────┐
-                    │ EfficientNet │                    │   MLP Branch   │
-                    │    B4        │                    │  (Dense×2 +    │
-                    │ (ImageNet)   │                    │   BatchNorm)   │
-                    └──────┬──────┘                    └───────┬────────┘
-                           │ 1792                              │ 32
-                    ┌──────▼──────┐                             │
-                    │  Compress   │                             │
-                    │ (→ 512)     │                             │
-                    └──────┬──────┘                             │
-                           │ 512                               │
-                           └─────────────┬─────────────────────┘
-                                         │ 544
-                                  ┌──────▼──────┐
-                                  │  Fusion Head │
-                                  │ (Dense + DO) │
-                                  └──────┬──────┘
-                                         │
-                                    ┌────▼────┐
-                                    │ Sigmoid  │
-                                    │ 0=Bénin  │
-                                    │ 1=Malin  │
-                                    └─────────┘
+              precision    recall  f1-score   support
+
+      Benign     0.9620    0.7915    0.8685      1631
+   Malignant     0.5015    0.8702    0.6363       393
+
+    accuracy                         0.8068      2024
 ```
 
 ---
 
-## 🔧 Pipeline de Traitement d'Image
+## Core Innovation: FiLM Conditioning
 
-Avant d'atteindre le modèle, chaque image passe par un pipeline de 3 étapes conçu pour **détruire les biais visuels** :
+Standard multimodal approaches concatenate image features and metadata at the classifier. This means the CNN processes images **blindly**, with no knowledge of the patient.
 
-### 1. 🪒 DullRazor Universel (Suppression des poils)
-- Détection des poils clairs **et** sombres via combinaison Black-Hat + Top-Hat
-- Dilatation pour capturer les intersections de poils
-- Inpainting (cicatrisation numérique) via l'algorithme de Telea
+FiLM solves this by injecting metadata directly into the visual feature extraction:
 
-### 2. 🎯 Segmentation SAM avec Viseur Hybride
-- **Anomalie colorimétrique** : Distance LAB par rapport à la peau saine (indépendante du phototype)
-- **Gravité centrale** : Biais gaussien pour les images zoomées
-- **Fusion** : Anomalie × Gravité → Point Prompt pour SAM (Meta)
+```
+Metadata ──► [MLP] ──► [32-d conditioning vector]
+                                    │
+                               γ and β
+                                    │
+Image ──► [CNN] ──► [Pool] ──► [Compress 512-d] ──► [FiLM ⊗ +] ──► [Classify] ──► Prediction
 
-### 3. 📷 Effet Bokeh Médical (Anti-Biais de Contour)
-- Flou d'arrière-plan pour forcer l'IA à regarder la lésion
-- **Feathering** : Le masque est lui-même flouté pour supprimer la ligne de fracture SAM
-- **Alpha Blending** : Transition douce et biologique
+FiLM: output = vision × (1 + γ(metadata)) + β(metadata)
+```
 
----
-
-## 📊 Dataset — ISIC HAM10000
-
-| Diagnostic | Type | Danger | Images (~) |
-|---|---|---|---|
-| `nv` — Naevus (Grain de beauté) | Bénin ✅ | Faible | ~6 705 |
-| `mel` — **Mélanome** | **Malin ⚠️** | **MORTEL** | ~1 113 |
-| `bkl` — Kératose bénigne | Bénin ✅ | Faible | ~1 099 |
-| `bcc` — Carcinome basocellulaire | **Malin ⚠️** | Sérieux | ~514 |
-| `akiec` — Kératose actinique | **Pré-malin ⚠️** | Modéré | ~327 |
-| `vasc` — Lésion vasculaire | Bénin ✅ | Faible | ~142 |
-| `df` — Dermatofibrome | Bénin ✅ | Faible | ~115 |
-
-> **Défi majeur** : Déséquilibre extrême (67% de grains de beauté). Résolu par Focal Loss + Augmentation ciblée.
+The network learns to **re-weight its visual attention** based on the patient's clinical profile.
 
 ---
 
-## 🛡️ Stratégies Anti-Déséquilibre
+## Architecture: Three-Expert Ensemble
 
-| Stratégie | Implémentation |
-|---|---|
-| **Focal Loss** | α=0.75 pour la classe Malin, γ=2.0 — pénalise fortement les erreurs sur les cas rares |
-| **Augmentation ciblée** | Rotation 360°, zoom, affine, jitter agressif uniquement sur les cas malins |
-| **GroupShuffleSplit** | Partitionnement par `patient_id` pour zéro Data Leakage |
-| **Learning Rates différentiels** | Backbone (1e-5) vs Tête (1e-3) — protège les features pré-entraînées |
+| Model | Individual AUC | Ensemble Weight |
+|-------|:---:|:---:|
+| EfficientNet-B4 + FiLM | 0.893 | 0.33 |
+| ResNet-50 + FiLM | 0.896 | 0.33 |
+| DenseNet-121 + FiLM | 0.909 | 0.34 |
+| **Weighted TTA Ensemble** | **0.9095** | — |
+
+Each model follows the same pipeline:
+1. **Pretrained CNN Backbone** (ImageNet) → visual feature extraction
+2. **Compression Layer** (→ 512-d) → standardized feature space
+3. **Tabular MLP** (→ 64 → 32-d) → clinical metadata encoding
+4. **FiLM Layer** → metadata-conditioned affine modulation
+5. **Classifier Head** (512 → 256 → 1) → binary prediction
 
 ---
 
-## 🚀 Installation & Utilisation
+## Training Strategy: Progressive Resizing
 
-### Prérequis
+```
+Phase 1: Warm-Up              Phase 2: Fine-Tuning
+─────────────────────          ─────────────────────
+Resolution: 256×256            Resolution: 512×512
+Backbone:   FROZEN             Backbone:   UNFROZEN
+LR:         1e-3               LR:         1e-4
+Batch:      32                 Batch:      8
+Epochs:     15 (patience 6)    Epochs:     10 (patience 4)
+─────────────────────          ─────────────────────
+Goal: Train new layers         Goal: Fine-tune backbone
+without destroying pretrained  at full clinical resolution
+ImageNet representations.      for cellular micro-detail.
+```
+
+**Loss Function:** Focal Loss (α=0.75, γ=2.0) — down-weights easy benign samples, concentrates on hard malignant cases.
+
+---
+
+## Explainable AI: Filtered Grad-CAM
+
+Standard Grad-CAM produces diffuse, noisy heatmaps. Dermascope AI uses a **4-stage filtering pipeline** to create precise, SAM-like attention maps:
+
+1. **Normalization** → scale activations to [0, 1]
+2. **Center-weighted Gaussian mask** → suppress corner/edge artifacts from zero-padding
+3. **Aggressive threshold (0.45)** → retain only the strongest activations
+4. **Morphological cleanup** → remove isolated noise, fill holes
+
+The result: heatmaps that precisely outline the lesion, ignoring healthy skin entirely.
+
+---
+
+## Quick Start
+
+### 1. Clone
 ```bash
-Python >= 3.10
-CUDA >= 11.8 (recommandé pour l'entraînement)
-```
-
-### Installation
-```bash
-git clone https://github.com/bilel-kahma/dermascope-ai.git
+git clone https://github.com/Ahmed-ben-khalfa/dermascope-ai.git
 cd dermascope-ai
+```
+
+### 2. Install
+```bash
 pip install -r requirements.txt
 ```
 
-### Entraînement
-```bash
-python src/train.py
+### 3. Set Up Weights
+Place your trained `.pth` files in the `weights/` directory:
+```
+weights/
+├── best_film_512_effnet.pth
+├── best_film_512_resnet.pth
+└── best_film_512_densenet.pth
 ```
 
-### Évaluation
+### 4. Launch
 ```bash
-python src/evaluate.py
+streamlit run app.py
 ```
+
+Open `http://localhost:8501` in your browser.
 
 ---
 
-## 📁 Structure du Projet
+## Repository Structure
 
 ```
 dermascope-ai/
-├── README.md                          # Ce fichier
-├── requirements.txt                   # Dépendances Python
-├── .gitignore                         # Fichiers exclus de Git
-├── LICENSE                            # Licence MIT
+├── app.py                         # Streamlit interactive dashboard
+├── models.py                      # FiLM architecture (3 backbones)
+├── utils.py                       # TTA, Grad-CAM Sniper, metadata encoding
+├── requirements.txt               # Python dependencies
+├── README.md
+├── REPORT_Dermascope_AI_Full.md   # Full technical research report
 │
-├── data/                              # Données (exclues de Git)
-│   ├── train_df_clean.csv             # Métadonnées d'entraînement
-│   ├── val_df_clean.csv               # Métadonnées de validation
-│   └── Images_Dermascope_Propres/     # Images nettoyées (DullRazor + SAM + Bokeh)
+├── src/                           # Training pipeline (Kaggle)
+│   ├── config.py                  # Centralized hyperparameters
+│   ├── dataset.py                 # PyTorch Dataset + DataLoader
+│   ├── model.py                   # Model definitions
+│   ├── train.py                   # Training loop with early stopping
+│   ├── evaluate.py                # Evaluation + ROC + confusion matrix
+│   └── preprocessing.py           # DullRazor hair removal
 │
-├── src/                               # Code source principal
-│   ├── config.py                      # Configuration centralisée
-│   ├── preprocessing.py               # Pipeline DullRazor → SAM → Bokeh
-│   ├── dataset.py                     # Dataset PyTorch multimodal
-│   ├── model.py                       # Architecture DermascopeMultimodal
-│   ├── train.py                       # Boucle d'entraînement
-│   └── evaluate.py                    # Métriques et visualisations
+├── data/                          # CSV annotations (images excluded)
+│   ├── train_df_clean.csv
+│   └── val_df_clean.csv
 │
-├── notebooks/                         # Notebooks Jupyter / Colab
-│   └── dermascope_colab_brut.ipynb    # Notebook Colab original
+├── weights/                       # Trained model checkpoints
+│   ├── best_film_512_effnet.pth
+│   ├── best_film_512_resnet.pth
+│   └── best_film_512_densenet.pth
 │
-├── models/                            # Poids entraînés (.pth)
-├── results/                           # Graphiques et rapports générés
-├── app/                               # Application Gradio (démo)
-│   └── gradio_app.py
-│
-└── docs/                              # Documentation technique
-    ├── rapport_phase1_dermascope.md    # Phase 1 : Data Engineering
-    ├── rapport_phase2_dermascope.md    # Phase 2 : Pipeline Image
-    ├── explications_architecture.md   # Vulgarisation du réseau
-    └── roadmap_multimodale.md         # Feuille de route
+├── docs/                          # Architecture diagrams + reports
+└── notebooks/                     # Kaggle training notebook
 ```
 
 ---
 
-## 🎯 Compétences Démontrées
+## Training Environment
 
-| Domaine | Compétences |
-|---|---|
-| **Deep Learning** | Transfer Learning (EfficientNet-B4), Fine-Tuning, Focal Loss, Mixed Precision (FP16), Gradient Accumulation |
-| **Computer Vision** | Morphologie mathématique (Black-Hat/Top-Hat), Inpainting, Segmentation (SAM), Alpha Blending |
-| **Data Engineering** | Ingestion web (bypass 403), Nettoyage, Imputation, One-Hot Encoding vectorisé, GroupShuffleSplit anti-leakage |
-| **Architecture ML** | Modèle multimodal (Vision + Tabulaire), Fusion par concaténation, Learning rates différentiels |
-| **MLOps** | Checkpointing (Google Drive), Early Stopping, Reproductibilité (seeds), CosineAnnealing |
-| **Éthique IA Médicale** | Biais de phototype, invariance d'échelle, anti-Edge Bias, avertissement médical |
-
----
-
-## 📚 Technologies
-
-- **Framework** : PyTorch 2.x
-- **Backbone** : EfficientNet-B4 (pré-entraîné ImageNet)
-- **Segmentation** : Segment Anything Model (SAM) — Meta AI
-- **Traitement d'image** : OpenCV (Morphologie, Inpainting, LAB)
-- **Data Science** : Pandas, NumPy, Scikit-learn
-- **Visualisation** : Matplotlib, Seaborn
-- **Démo** : Gradio
+| Component | Specification |
+|-----------|------|
+| GPU | NVIDIA Tesla T4 (16GB VRAM) |
+| Framework | PyTorch 2.x + Mixed Precision (AMP) |
+| Optimizer | AdamW (weight_decay=1e-4) |
+| Scheduler | CosineAnnealingWarmRestarts (T₀=5) |
+| Gradient Clipping | max_norm=1.0 |
+| Total Training Time | ~3.5 hours (both phases, all 3 models) |
 
 ---
 
-## 📖 Considérations Éthiques
+## Key Design Decisions
 
-- Ce système **N'EST PAS** certifié comme dispositif médical (CE/FDA)
-- Il ne remplace **JAMAIS** un dermatologue qualifié
-- Le dataset ISIC est biaisé vers les peaux claires (Fitzpatrick I-III)
-- Notre pipeline de segmentation utilise l'espace LAB pour être **indépendant du phototype**
-- Toute lésion suspecte nécessite une **biopsie** et un avis médical professionnel
+<details>
+<summary><b>Why FiLM over Cross-Attention?</b></summary>
+Cross-attention requires significantly more compute and data. FiLM adds only 2 linear layers (gamma, beta) — minimal overhead, proven convergence on moderate datasets, ideal for Kaggle T4 constraints.
+</details>
+
+<details>
+<summary><b>Why threshold 0.46 instead of 0.50?</b></summary>
+In medical screening, the cost of a False Negative (missed cancer) vastly exceeds the cost of a False Positive (unnecessary biopsy). The Youden Index optimization on the ROC curve found 0.4607 as the point maximizing Sensitivity + Specificity jointly.
+</details>
+
+<details>
+<summary><b>Why SiLU activation throughout?</b></summary>
+EfficientNet internally uses SiLU/Swish. Maintaining the same activation in our compression and classifier layers preserves gradient flow consistency across the architecture boundary.
+</details>
+
+<details>
+<summary><b>Why Cosine Annealing with Warm Restarts?</b></summary>
+The warm restart mechanism helps escape sharp local minima during Phase 1. During Phase 2, the cosine decay smoothly reduces LR, protecting fine-grained 512×512 features from overshooting.
+</details>
 
 ---
 
-## 👤 Auteur
+## Author
 
-**Bilel Kahma** — Étudiant en Ingénierie & Data Science
+**Ahmed Ben Khalfa**
+AI & Deep Learning Engineer
+
+[GitHub](https://github.com/Ahmed-ben-khalfa) · [LinkedIn](https://www.linkedin.com/in/ahmedbenkhalfa)
 
 ---
 
-## 📄 Licence
+## License
 
-Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+<i>"The goal is not to replace the dermatologist. The goal is to make sure no melanoma goes unnoticed."</i>
+</div>
